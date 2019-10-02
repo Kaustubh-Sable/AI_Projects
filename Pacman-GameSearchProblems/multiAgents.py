@@ -74,7 +74,45 @@ class ReflexAgent(Agent):
         newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
 
         "*** YOUR CODE HERE ***"
-        return successorGameState.getScore()
+        currentFoodState = currentGameState.getFood()
+
+        # variable to score an evaluation of the current state of ReflexAgent
+        preference = 0
+
+        # determining preference of the action based on food.
+        for i in range(0, len(currentFoodState.data)):
+            for j in range(0, len(currentFoodState.data[i])):
+                if currentFoodState[i][j] is True:
+                    dist = util.manhattanDistance(newPos,(i,j))
+                    if dist == 0:
+                        preference = preference + 100
+                    else:
+                        preference = preference + 21/(dist)
+
+        # determining preference of the action based on capsules.
+        power_pellet = currentGameState.getCapsules()
+        for pellet in power_pellet:
+            dist = util.manhattanDistance(newPos, pellet)
+            if dist==0:
+                preference = preference + 1000
+            else:
+                preference = preference + 100/dist
+
+        # determining preference of the action based on ghosts.
+        ghost_weight = 0
+        for ghost in newGhostStates:
+            d = util.manhattanDistance(newPos, ghost.getPosition())
+            if d<=1:
+                if ghost.scaredTimer>0:
+                    # eat pacman if already eaten a pallet
+                    ghost_weight = 99999
+                else:
+                    preference = preference - 320
+
+        if ghost_weight!=0:
+            return ghost_weight
+        else:
+            return preference
 
 def scoreEvaluationFunction(currentGameState):
     """
@@ -129,7 +167,68 @@ class MinimaxAgent(MultiAgentSearchAgent):
             Returns the total number of agents in the game
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+
+        agent_index = 0
+
+        # Collect legal moves and successor states
+        depth = 1
+
+        # function call to get next action and score for particular agent
+        action, score = self.getActionScore('', gameState, depth, agent_index)
+
+        return action
+
+    def getActionScore(self, action, gameState, depth, agent_index):
+        """
+            Recursive function to get next action and score based on the current game state, depth and type of agent.
+        """
+        if agent_index == gameState.getNumAgents():
+            if depth >= self.depth:
+                # terminating condition : leaf has been reached
+                return action, self.evaluationFunction(gameState)
+            depth = depth + 1
+            # set agent as max (pacman) when depth is increased.
+            agent_index = 0
+
+        # Collect legal moves and successor states
+        legal_actions = gameState.getLegalActions(agent_index)
+
+        if len(legal_actions) == 0:
+            # leaf level reached
+            return action, self.evaluationFunction(gameState)
+
+        scores = []
+
+        # evaluating each possible action
+        for action in legal_actions:
+            successor_state = gameState.generateSuccessor(agent_index, action)
+            ac, score = self.getActionScore(action, successor_state, depth, agent_index+1)
+            scores.append((action, score))
+
+        bestScore = 0
+        if agent_index==0:
+            # if agent is max, take the maximum score and return the corresponding action with it.
+            if len(scores)==0:
+                return 'center', -9999
+            bestScore = -9999
+            best_action = ''
+            for action,score in scores:
+                if score > bestScore:
+                    bestScore = score
+                    best_action = action
+        else:
+            # if agent is min, take the minimum score and return the corresponding action with it.
+            if len(scores)==0:
+                return 'center', 9999
+            bestScore = 9999
+            best_action = ''
+            for action, score in scores:
+                if score < bestScore:
+                    bestScore = score
+                    best_action = action
+
+        return best_action, bestScore
+
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
@@ -156,7 +255,63 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
           legal moves.
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        agent_index = 0
+        depth = 1
+
+        # function call to get next action and score for particular agent
+        action, score = self.getActionScore('', gameState, depth, agent_index)
+
+        return action
+
+    def getActionScore(self, action, gameState, depth, agent_index):
+        """
+            Recursive function to get next action and score based on the current game state, depth and type of agent.
+        """
+        if agent_index == gameState.getNumAgents():
+            if depth >= self.depth:
+                # terminating condition : leaf has been reached
+                return action, self.evaluationFunction(gameState)
+            depth = depth + 1
+            # set agent as max (pacman) when depth is increased.
+            agent_index = 0
+
+        # Collect legal moves and successor states
+        legal_actions = gameState.getLegalActions(agent_index)
+
+        if len(legal_actions) == 0:
+            # leaf level reached
+            return action, self.evaluationFunction(gameState)
+
+        scores = []
+
+        # evaluating each possible action
+        for action in legal_actions:
+            successor_state = gameState.generateSuccessor(agent_index, action)
+            ac, score = self.getActionScore(action, successor_state, depth, agent_index + 1)
+            scores.append((action, score))
+
+        bestScore = 0
+        if agent_index == 0:
+            # if agent is max, take the maximum score and return the corresponding action with it.
+            if len(scores) == 0:
+                return 'center', -9999
+            bestScore = -9999
+            best_action = ''
+            for action, score in scores:
+                if score > bestScore:
+                    bestScore = score
+                    best_action = action
+        else:
+            # if agent is a chance node, take the average score and return the corresponding action with it.
+            if len(scores) == 0:
+                return 'center', 9999
+            avgScore = 0
+            for action, score in scores:
+                avgScore += score
+            bestScore = avgScore/len(scores)
+            best_action = ''
+
+        return best_action, bestScore
 
 def betterEvaluationFunction(currentGameState):
     """
@@ -170,4 +325,3 @@ def betterEvaluationFunction(currentGameState):
 
 # Abbreviation
 better = betterEvaluationFunction
-
